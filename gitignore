@@ -1,0 +1,39 @@
+# Environment variables
+.env
+
+# SSL Certificates
+certs/
+
+# Docker volumes data
+postgres_data/
+mattermost_config/
+mattermost_data/
+mattermost_logs/
+mattermost_plugins/
+mattermost_client_plugins/
+mattermost_bleve_indexes/
+jitsi_prosody_config/
+jitsi_prosody_plugins/
+jitsi_jicofo/
+jitsi_jvb/
+nginx_cache/
+nginx_logs/
+
+# Backup files
+*.sql
+*.backup
+*.dump
+
+# Log files
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
