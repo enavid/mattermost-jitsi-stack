@@ -206,3 +206,33 @@ The following ports must be accessible:
 - **80/TCP** - HTTP (redirects to HTTPS)
 - **443/TCP** - HTTPS for web interfaces
 - **10000/UDP** - Jitsi video bridge
+
+
+
+
+cd /nginx
+
+openssl dhparam -out dhparam.pem 2048
+
+
+
+# Change ownership to UID 70 (postgres user in Alpine)
+
+sudo chown 70:70 ./certs/postgres/server.key
+sudo chown 70:70 ./certs/postgres/server.crt
+
+# Ensure correct permissions
+
+sudo chmod 600 ./certs/postgres/server.key
+sudo chmod 644 ./certs/postgres/server.crt
+
+# Verify the changes
+
+ls -la ./certs/postgres/
+
+
+
+
+docker exec -it jitsi-prosody /bin/bash
+
+prosodyctl --config /config/prosody.cfg.lua register username meet.jitsi password
