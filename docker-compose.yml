@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -9,20 +7,30 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 100
-    read_only: true
+    read_only: false
     tmpfs:
       - /tmp
       - /var/run/postgresql
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - /etc/localtime:/etc/localtime:ro
+      # SSL certificates for PostgreSQL
+      - ./certs/postgres:/var/lib/postgresql/certs:ro
     environment:
       TZ: Asia/Tehran
       POSTGRES_USER: mmuser
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: mattermost
+      # Enable SSL
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+      -c ssl_min_protocol_version=TLSv1.2
     networks:
-      - mattermost-network
+      - database-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mmuser -d mattermost"]
       interval: 10s
@@ -51,25 +59,27 @@ services:
     environment:
       TZ: Asia/Tehran
       MM_SQLSETTINGS_DRIVERNAME: postgres
-      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${POSTGRES_PASSWORD}@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
-      
+      # SSL enabled connection
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${POSTGRES_PASSWORD}@postgres:5432/mattermost?sslmode=require&connect_timeout=10
+
       # Server Settings
       MM_SERVICESETTINGS_SITEURL: ${MATTERMOST_DOMAIN}
       MM_SERVICESETTINGS_LISTENADDRESS: :8065
-      
+
       # Email Settings
       MM_EMAILSETTINGS_SMTPSERVER: ${SMTP_SERVER}
       MM_EMAILSETTINGS_SMTPPORT: ${SMTP_PORT}
       MM_EMAILSETTINGS_SMTPUSERNAME: ${SMTP_USERNAME}
       MM_EMAILSETTINGS_SMTPPASSWORD: ${SMTP_PASSWORD}
       MM_EMAILSETTINGS_FEEDBACKEMAIL: ${FEEDBACK_EMAIL}
-      
+
       # Plugin Settings
       MM_PLUGINSETTINGS_ENABLE: true
       MM_PLUGINSETTINGS_ENABLEUPLOADS: true
-      
+
     networks:
-      - mattermost-network
+      - database-network
+      - frontend-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8065/api/v4/system/ping"]
       interval: 30s
@@ -77,23 +87,31 @@ services:
       retries: 3
       start_period: 90s
 
-  # Jitsi Web
+  # Jitsi Web with Authentication
   jitsi-web:
     image: jitsi/web:stable
     container_name: jitsi-web
     restart: unless-stopped
     environment:
-      - ENABLE_AUTH=0
+      # Authentication Enabled
+      - AUTH_TYPE=internal
+      - ENABLE_AUTH=1
       - ENABLE_GUESTS=1
+
+      # Basic Settings
       - ENABLE_LETSENCRYPT=0
       - ENABLE_HTTP_REDIRECT=0
       - ENABLE_HSTS=0
       - DISABLE_HTTPS=1
       - PUBLIC_URL=${JITSI_DOMAIN}
+
+      # Component Secrets
       - JICOFO_AUTH_USER=focus
       - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET}
       - JVB_AUTH_USER=jvb
       - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD}
+
+      # XMPP Settings
       - XMPP_DOMAIN=meet.jitsi
       - XMPP_AUTH_DOMAIN=auth.meet.jitsi
       - XMPP_BOSH_URL_BASE=http://jitsi-prosody:5280
@@ -101,7 +119,8 @@ services:
       - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
       - TZ=Asia/Tehran
     networks:
-      - mattermost-network
+      - jitsi-network
+      - frontend-network
 
   # Jitsi Prosody (XMPP Server)
   jitsi-prosody:
@@ -109,44 +128,30 @@ services:
     container_name: jitsi-prosody
     restart: unless-stopped
     environment:
+      # Authentication
       - AUTH_TYPE=internal
-      - ENABLE_AUTH=0
+      - ENABLE_AUTH=1
       - ENABLE_GUESTS=1
-      - GLOBAL_MODULES=
-      - GLOBAL_CONFIG=
-      - LDAP_URL=
+
+      # XMPP Domains
       - XMPP_DOMAIN=meet.jitsi
       - XMPP_AUTH_DOMAIN=auth.meet.jitsi
       - XMPP_GUEST_DOMAIN=guest.meet.jitsi
       - XMPP_MUC_DOMAIN=muc.meet.jitsi
       - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
-      - XMPP_MODULES=
-      - XMPP_MUC_MODULES=
-      - XMPP_INTERNAL_MUC_MODULES=
       - XMPP_RECORDER_DOMAIN=recorder.meet.jitsi
+
+      # Component Authentication
       - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET}
       - JICOFO_AUTH_USER=focus
       - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD}
       - JVB_AUTH_USER=jvb
       - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD}
-      - JIGASI_XMPP_USER=
-      - JIGASI_XMPP_PASSWORD=
-      - JIBRI_XMPP_USER=
-      - JIBRI_XMPP_PASSWORD=
-      - JIBRI_RECORDER_USER=
-      - JIBRI_RECORDER_PASSWORD=
-      - JWT_APP_ID=
-      - JWT_APP_SECRET=
-      - JWT_ACCEPTED_ISSUERS=
-      - JWT_ACCEPTED_AUDIENCES=
-      - JWT_ASAP_KEYSERVER=
-      - JWT_ALLOW_EMPTY=
-      - JWT_AUTH_TYPE=
-      - JWT_TOKEN_AUTH_MODULE=
+
       - LOG_LEVEL=info
       - TZ=Asia/Tehran
     networks:
-      - mattermost-network
+      - jitsi-network
     volumes:
       - jitsi_prosody_config:/config
       - jitsi_prosody_plugins:/prosody-plugins-custom
@@ -159,22 +164,26 @@ services:
     depends_on:
       - jitsi-prosody
     environment:
+      # Authentication
       - AUTH_TYPE=internal
-      - ENABLE_AUTH=0
+      - ENABLE_AUTH=1
+      - ENABLE_GUESTS=1
+
+      # XMPP Settings
       - XMPP_DOMAIN=meet.jitsi
       - XMPP_AUTH_DOMAIN=auth.meet.jitsi
       - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
       - XMPP_SERVER=jitsi-prosody
+
+      # Component Authentication
       - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET}
       - JICOFO_AUTH_USER=focus
       - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD}
       - JVB_BREWERY_MUC=jvbbrewery
-      - JIGASI_BREWERY_MUC=
-      - JIBRI_BREWERY_MUC=
-      - JIGASI_SIP_BREWERY_MUC=
+
       - TZ=Asia/Tehran
     networks:
-      - mattermost-network
+      - jitsi-network
     volumes:
       - jitsi_jicofo:/config
 
@@ -186,7 +195,7 @@ services:
     depends_on:
       - jitsi-prosody
     ports:
-      - '10000:10000/udp'
+      - "10000:10000/udp"
     environment:
       - DOCKER_HOST_ADDRESS=${DOCKER_HOST_ADDRESS}
       - XMPP_AUTH_DOMAIN=auth.meet.jitsi
@@ -202,7 +211,7 @@ services:
       - JVB_ENABLE_APIS=rest,colibri
       - TZ=Asia/Tehran
     networks:
-      - mattermost-network
+      - jitsi-network
     volumes:
       - jitsi_jvb:/config
 
@@ -224,7 +233,7 @@ services:
       - nginx_cache:/var/cache/nginx
       - nginx_logs:/var/log/nginx
     networks:
-      - mattermost-network
+      - frontend-network
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -247,5 +256,16 @@ volumes:
   nginx_logs:
 
 networks:
-  mattermost-network:
+  # Separate network for database - only Mattermost can access
+  database-network:
+    driver: bridge
+    internal: true
+
+  # Separate network for Jitsi components
+  jitsi-network:
+    driver: bridge
+    internal: true
+
+  # Frontend network - only Nginx and apps
+  frontend-network:
     driver: bridge
