@@ -40,7 +40,7 @@ All services communicate through an isolated Docker bridge network for enhanced 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/mattermost-jitsi-stack.git
+git clone https://github.com/enavid/mattermost-jitsi-stack.git
 cd mattermost-jitsi-stack
 ```
 
