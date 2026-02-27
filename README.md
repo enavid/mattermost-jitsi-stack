@@ -1,7 +1,3 @@
-# Mattermost Jitsi Stack
-
-A complete self-hosted enterprise communication platform combining Mattermost team chat with Jitsi video conferencing capabilities. This stack provides organizations with a unified, privacy-focused communication solution deployed via Docker Compose.
-
 ## Overview
 
 This project delivers a production-ready communication infrastructure featuring:
@@ -13,34 +9,12 @@ This project delivers a production-ready communication infrastructure featuring:
 - Integrated health checks and automatic restart policies
 - Optimized security configurations with read-only containers and resource limits
 
-## Architecture
-
-The stack consists of seven Docker containers working together:
-
-1. **PostgreSQL Database** - Stores Mattermost data with health monitoring
-2. **Mattermost Application** - Team collaboration platform
-3. **Jitsi Web** - Video conferencing web interface
-4. **Jitsi Prosody** - XMPP server for Jitsi signaling
-5. **Jitsi Jicofo** - Conference focus component
-6. **Jitsi JVB** - Video bridge for media routing
-7. **Nginx** - Reverse proxy and SSL termination
-
-All services communicate through an isolated Docker bridge network for enhanced security.
-
-## Prerequisites
-
-- Docker Engine 20.10 or higher
-- Docker Compose 2.0 or higher
-- A server with at least 4GB RAM and 2 CPU cores
-- Two domain names pointing to your server (one for chat, one for video)
-- SSL certificates for both domains
-
 ## Quick Start
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/mattermost-jitsi-stack.git
+git clone https://github.com/enavid/mattermost-jitsi-stack.git
 cd mattermost-jitsi-stack
 ```
 
@@ -207,14 +181,9 @@ The following ports must be accessible:
 - **443/TCP** - HTTPS for web interfaces
 - **10000/UDP** - Jitsi video bridge
 
-
-
-
 cd /nginx
 
 openssl dhparam -out dhparam.pem 2048
-
-
 
 # Change ownership to UID 70 (postgres user in Alpine)
 
@@ -229,9 +198,6 @@ sudo chmod 644 ./certs/postgres/server.crt
 # Verify the changes
 
 ls -la ./certs/postgres/
-
-
-
 
 docker exec -it jitsi-prosody /bin/bash
 
