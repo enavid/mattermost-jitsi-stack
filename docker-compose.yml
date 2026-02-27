@@ -264,7 +264,6 @@ networks:
   # Separate network for Jitsi components
   jitsi-network:
     driver: bridge
-    internal: true
 
   # Frontend network - only Nginx and apps
   frontend-network:
