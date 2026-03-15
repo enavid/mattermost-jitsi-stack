@@ -198,6 +198,7 @@ services:
       - "10000:10000/udp"
     environment:
       - DOCKER_HOST_ADDRESS=${DOCKER_HOST_ADDRESS}
+      - JVB_ADVERTISE_IPS=${DOCKER_HOST_ADDRESS}
       - XMPP_AUTH_DOMAIN=auth.meet.jitsi
       - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
       - XMPP_SERVER=jitsi-prosody
